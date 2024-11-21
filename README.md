@@ -138,7 +138,7 @@ To automate the script execution using `crontab` on macOS, follow these steps:
 
 2. Add the following line to schedule the script to run every minute:
    ```bash
-   * * * * * ~/.pyenv/versions/3.12.3/bin/python3.12 /Users/davidnorman/clanker-launch-bot/app.py >> /Users/davidnorman/clanker-launch-bot/logfile.log 2>&1
+   * * * * * ~/.pyenv/versions/3.12.3/bin/python3.12 /Users/yourusername/clanker-launch-bot/app.py >> /Users/yourusername/clanker-launch-bot/logfile.log 2>&1
    ```
 
    - This will execute the script every minute and log the output to `logfile.log`.
