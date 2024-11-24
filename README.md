@@ -150,6 +150,12 @@ To automate the script execution using `crontab` on macOS, follow these steps:
    crontab -l
    ```
 
+Useful additional steps for backing up and restoring crontab job:
+crontab -l > my_cron_backup.txt
+crontab -r
+crontab my_cron_backup.txt
+
+
 ## Contribution
 
 Contributions are welcome! If you find a bug or want to add a new feature, please open an issue or submit a pull request.

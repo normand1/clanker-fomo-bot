@@ -161,13 +161,15 @@ def format_token_dict(token: Token) -> Dict:
     """Convert Token object to dictionary format and enrich with Neynar API data"""
     warpcast_username = extract_warpcast_username(token.creator_link)
     neynar_user_info = None
+    cast_count = 0  # Initialize cast count
 
     if warpcast_username:
         try:
             neynar_user_info = neynar.get_user_by_username(warpcast_username)
+            # neynar_casts = neynar.search_casts(f"{token.name}", priority_mode=True, limit=100)
+            # cast_count = len(neynar_casts.get("result", {}).get("casts", []))  # Extract cast count
         except Exception as e:
-            if verbose:
-                click.echo(f"Error fetching Neynar data for {warpcast_username}: {e}", err=True)
+            click.echo(f"Error fetching Neynar data for {warpcast_username}: {e}", err=True)
 
     return {
         "name": token.name,
@@ -180,6 +182,7 @@ def format_token_dict(token: Token) -> Dict:
             "dexscreener": token.dexscreener_url,
             "basescan": token.basescan_url,
         },
+        "cast_count": cast_count,  # Add cast count to the token dictionary
     }
 
 
@@ -195,11 +198,16 @@ def display_tokens(tokens):
     table.add_column("Warpcast Link", style="yellow", overflow="ellipsis", no_wrap=True)
     table.add_column("Power Badge", style="red", justify="center")
     table.add_column("Followers", style="white", justify="right")
+    table.add_column("Cast Count", style="magenta", justify="right")
+    table.add_column("Search Link", no_wrap=True)
 
     for token in tokens:
         creator_data = token.get("creator", {}) or {}
         neynar_data = creator_data.get("neynar_data", {}) or {}
         user_data = neynar_data.get("user", {}) or {}
+
+        search_term = token.get("name", "Unknown").replace(" ", "+")
+        search_link = f"https://warpcast.com/~/search/recent?q={search_term}"
 
         table.add_row(
             token.get("name", "Unknown"),
@@ -209,6 +217,8 @@ def display_tokens(tokens):
             creator_data.get("link", "N/A"),
             str(user_data.get("power_badge", False)),
             str(user_data.get("follower_count", "N/A")),
+            str(token.get("cast_count", 0)),
+            f"[link={search_link}]{search_link}[/link]",
         )
 
     console.print(table)
@@ -277,6 +287,9 @@ def check_clanker(output=None, verbose=False):
                     title="New Token Created!", message=f"{username} created a token: {token_name} with {follower_count} followers.", url=token.get("links", {}).get("dexscreener", "N/A")
                 )
 
+                # Announce on Farcaster
+                announce_token(token)
+
                 # Add to cache
                 notified_tokens.append(token_id)
 
@@ -306,6 +319,35 @@ def check_clanker(output=None, verbose=False):
     except Exception as e:
         click.echo(f"Error processing data: {e}", err=True)
         return 1
+
+
+def announce_token(token: Dict) -> None:
+    """
+    Announce a new token by posting a cast to Farcaster.
+
+    Args:
+        token: Dictionary containing token information
+    """
+    creator_data = token.get("creator", {}) or {}
+    neynar_data = creator_data.get("neynar_data", {}) or {}
+    user_data = neynar_data.get("user", {}) or {}
+
+    # Format the announcement
+    text = (
+        f"🚨 New Clanker Token Alert 🚨\n\n"
+        f"⛓️ ${token.get('symbol')} by {creator_data.get('username', 'Unknown')}\n"
+        f"📈 Creator Followers: {user_data.get('follower_count', 'N/A')}"
+        f"{' 🏅' if user_data.get('power_badge') else ''}\n\n"
+        f"👤 {creator_data.get('link', 'N/A')}\n"
+        f"🔍 Token Search: {f'https://warpcast.com/~/search/recent?q={token.get('name', '').replace(' ', '+')}' }\n"
+        f"📊 {token.get('links', {}).get('dexscreener', 'N/A')}"
+    )
+
+    try:
+        neynar.post_cast(text)
+        click.echo(f"Successfully announced token: {token.get('name')}")
+    except Exception as e:
+        click.echo(f"Error announcing token: {e}", err=True)
 
 
 @click.group()
