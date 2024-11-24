@@ -278,7 +278,7 @@ def check_clanker(output=None, verbose=False):
             # Use token's contract address as a unique identifier
             token_id = token.get("contract_address")
 
-            if follower_count > 8000 and token_id not in notified_tokens:
+            if follower_count > 5000 and token_id not in notified_tokens:
                 username = creator_data.get("username", "Unknown")
                 token_name = token.get("name", "Unknown")
 
