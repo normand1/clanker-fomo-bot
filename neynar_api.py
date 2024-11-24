@@ -43,6 +43,7 @@ class NeynarAPIManager:
 
         return response.json()
 
+    ## Commenting out because search used all of my Neynar compute credits way too fast :(s
     # def search_casts(self, query: str, priority_mode: bool = False, limit: int = 25) -> Dict[str, Any]:
     #     """
     #     Search for casts using a query string.
