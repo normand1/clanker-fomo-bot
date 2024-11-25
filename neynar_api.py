@@ -20,7 +20,7 @@ class NeynarAPIManager:
             raise ValueError("Neynar API key is required. Provide it directly or set NEYNAR_API_KEY environment variable.")
 
         self.base_url = "https://api.neynar.com/v2/farcaster"
-        self.headers = {"accept": "application/json", "x-neynar-experimental": "false", "x-api-key": self.api_key}
+        self.headers = {"accept": "application/json", "x-neynar-experimental": "true", "x-api-key": self.api_key}
 
     def get_user_by_username(self, username: str) -> Dict[str, Any]:
         """

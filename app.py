@@ -193,7 +193,7 @@ def format_token_dict(token: Token) -> Dict:
 
 def display_tokens(tokens):
     """Display token data in a clean, colorized format."""
-    console = Console(width=400)  # Increase width for rich output
+    console = Console(width=800)  # Increase width for rich output
 
     table = Table(title="Clanker Tokens", show_header=True, header_style="bold magenta", box=None)
     table.add_column("Name", style="cyan", overflow="fold", no_wrap=False)
@@ -204,6 +204,7 @@ def display_tokens(tokens):
     table.add_column("Power Badge", style="red", justify="center")
     table.add_column("Followers", style="white", justify="right")
     table.add_column("Cast Count", style="magenta", justify="right")
+    table.add_column("Neynar Score", style="cyan", justify="right")
     table.add_column("Search Link", no_wrap=True)
     table.add_column("DEXCheck", style="blue", no_wrap=True)
 
@@ -211,6 +212,7 @@ def display_tokens(tokens):
         creator_data = token.get("creator", {}) or {}
         neynar_data = creator_data.get("neynar_data", {}) or {}
         user_data = neynar_data.get("user", {}) or {}
+        neynar_score = user_data.get("experimental", {}).get("neynar_user_score", "N/A")
 
         search_term = token.get("name", "Unknown").replace(" ", "+")
         search_link = f"https://warpcast.com/~/search/recent?q={search_term}"
@@ -228,6 +230,7 @@ def display_tokens(tokens):
             str(user_data.get("power_badge", False)),
             str(user_data.get("follower_count", "N/A")),
             str(token.get("cast_count", 0)),
+            str(neynar_score),
             search_link,
             dexcheck_link if eth_address else "N/A",
         )
@@ -285,11 +288,12 @@ def check_clanker(output=None, verbose=False):
             user_data = neynar_data.get("user", {}) or {}
 
             follower_count = user_data.get("follower_count", 0)
+            neynar_user_score = user_data.get("experimental", {}).get("neynar_user_score", 0)
 
             # Use token's contract address as a unique identifier
             token_id = token.get("contract_address")
 
-            if follower_count > 5000 and token_id not in notified_tokens:
+            if follower_count > 5000 and neynar_user_score > 0.95 and token_id not in notified_tokens:
                 username = creator_data.get("username", "Unknown")
                 token_name = token.get("name", "Unknown")
 
@@ -347,12 +351,16 @@ def announce_token(token: Dict) -> None:
     eth_address = token.get("eth_address")
     dexcheck_link = f"https://dexcheck.ai/app/wallet-analyzer/{eth_address}?tab=pnl-calculator&chain=base" if eth_address else None
 
+    # Get Neynar score
+    neynar_score = user_data.get("experimental", {}).get("neynar_user_score", "N/A")
+
     # Format the announcement
     text = (
         f"🚨 New Clanker Token Alert 🚨\n\n"
         f"⛓️ ${token.get('symbol')} by {creator_data.get('username', 'Unknown')}\n"
         f"📈 Creator Followers: {user_data.get('follower_count', 'N/A')}"
-        f"{' 🏅' if user_data.get('power_badge') else ''}\n\n"
+        f"{' 🏅' if user_data.get('power_badge') else ''}\n"
+        f"🎯 Neynar Score: {neynar_score}\n\n"
         f"👤 {creator_data.get('link', 'N/A')}\n"
         f"🔍 Token Search: {f'https://warpcast.com/~/search/recent?q={token.get('name', '').replace(' ', '+')}' }\n"
         f"📊 {token.get('links', {}).get('dexscreener', 'N/A')}"
