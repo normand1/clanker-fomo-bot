@@ -36,6 +36,7 @@ class Token:
     image_url: str
     dexscreener_url: str
     basescan_url: str
+    clanker_url: str
 
 
 def get_dynamic_page_content(url: str, verbose: bool = False) -> str:
@@ -125,6 +126,10 @@ def parse_clanker_page(html_content: str, verbose: bool = False) -> List[Token]:
             links = card.find_all("a", href=True)
             dexscreener_url = next((link["href"] for link in links if "dexscreener.com" in link["href"]), None)
             basescan_url = next((link["href"] for link in links if "basescan.org" in link["href"]), None)
+            clanker_page_url = next((link["href"] for link in links if "/clanker/" in link["href"]), None)
+
+            # Update external links as needed
+            clanker_page_url = "https://www.clanker.world" + clanker_page_url if clanker_page_url else None
 
             token = Token(
                 name=name,
@@ -136,6 +141,7 @@ def parse_clanker_page(html_content: str, verbose: bool = False) -> List[Token]:
                 image_url=image_url,
                 dexscreener_url=dexscreener_url,
                 basescan_url=basescan_url,
+                clanker_url=clanker_page_url,
             )
 
             tokens.append(token)
@@ -162,7 +168,7 @@ def format_token_dict(token: Token) -> Dict:
     warpcast_username = extract_warpcast_username(token.creator_link)
     neynar_user_info = None
     cast_count = 0  # Initialize cast count
-    eth_address = None
+    eth_addresses = None
 
     if warpcast_username:
         try:
@@ -170,7 +176,6 @@ def format_token_dict(token: Token) -> Dict:
             # More defensive eth_address extraction
             verified_addresses = neynar_user_info.get("user", {}).get("verified_addresses", {})
             eth_addresses = verified_addresses.get("eth_addresses", [])
-            eth_address = eth_addresses[0] if eth_addresses else None
         except Exception as e:
             click.echo(f"Error fetching Neynar data for {warpcast_username}: {e}", err=True)
             # Continue with default None values for neynar_user_info and eth_address
@@ -185,28 +190,30 @@ def format_token_dict(token: Token) -> Dict:
         "links": {
             "dexscreener": token.dexscreener_url,
             "basescan": token.basescan_url,
+            "clanker": token.clanker_url,
         },
-        "eth_address": eth_address,
+        "eth_addresses": eth_addresses,
         "cast_count": cast_count,
     }
 
 
 def display_tokens(tokens):
     """Display token data in a clean, colorized format."""
-    console = Console(width=800)  # Increase width for rich output
+    console = Console(width=800)
 
     table = Table(title="Clanker Tokens", show_header=True, header_style="bold magenta", box=None)
     table.add_column("Name", style="cyan", overflow="fold", no_wrap=False)
     table.add_column("Symbol", style="green", no_wrap=True)
     table.add_column("Dexscreener Link", style="blue", no_wrap=True)
     table.add_column("BaseScan Link", style="blue", no_wrap=True)
+    table.add_column("Clanker Link", style="blue", no_wrap=True)
     table.add_column("Warpcast Link", style="yellow", overflow="ellipsis", no_wrap=True)
     table.add_column("Power Badge", style="red", justify="center")
     table.add_column("Followers", style="white", justify="right")
     table.add_column("Cast Count", style="magenta", justify="right")
     table.add_column("Neynar Score", style="cyan", justify="right")
     table.add_column("Search Link", no_wrap=True)
-    table.add_column("DEXCheck", style="blue", no_wrap=True)
+    table.add_column("DEXCheck Links", style="blue", no_wrap=True)
 
     for token in tokens:
         creator_data = token.get("creator", {}) or {}
@@ -217,22 +224,23 @@ def display_tokens(tokens):
         search_term = token.get("name", "Unknown").replace(" ", "+")
         search_link = f"https://warpcast.com/~/search/recent?q={search_term}"
 
-        # Create DEXCheck link if eth_address exists
-        eth_address = token.get("eth_address")
-        dexcheck_link = f"https://dexcheck.ai/app/wallet-analyzer/{eth_address}?tab=pnl-calculator&chain=base" if eth_address else "N/A"
+        # Create DEXCheck links for all eth addresses
+        eth_addresses = token.get("eth_addresses", [])
+        dexcheck_links = [f"https://dexcheck.ai/app/wallet-analyzer/{addr}?tab=pnl-calculator&chain=base" for addr in eth_addresses] if eth_addresses else ["N/A"]
 
         table.add_row(
             token.get("name", "Unknown"),
             token.get("symbol", "Unknown"),
             token.get("links", {}).get("dexscreener", "N/A"),
             token.get("links", {}).get("basescan", "N/A"),
+            token.get("links", {}).get("clanker", "N/A"),
             creator_data.get("link", "N/A"),
             str(user_data.get("power_badge", False)),
             str(user_data.get("follower_count", "N/A")),
             str(token.get("cast_count", 0)),
             str(neynar_score),
             search_link,
-            dexcheck_link if eth_address else "N/A",
+            ", ".join(dexcheck_links),
         )
 
     console.print(table)
@@ -293,7 +301,7 @@ def check_clanker(output=None, verbose=False):
             # Use token's contract address as a unique identifier
             token_id = token.get("contract_address")
 
-            if follower_count > 5000 and neynar_user_score > 0.95 and token_id not in notified_tokens:
+            if follower_count > 5000 and neynar_user_score > 0.5 and token_id not in notified_tokens:
                 username = creator_data.get("username", "Unknown")
                 token_name = token.get("name", "Unknown")
 
@@ -307,6 +315,8 @@ def check_clanker(output=None, verbose=False):
 
                 # Add to cache
                 notified_tokens.append(token_id)
+
+                click.echo(f"🔔 Notified {token_name} with {follower_count} followers and Neynar score {neynar_user_score} 🔔")
 
         # Save updated cache
         save_notification_cache(notified_tokens)
@@ -347,9 +357,9 @@ def announce_token(token: Dict) -> None:
     neynar_data = creator_data.get("neynar_data", {}) or {}
     user_data = neynar_data.get("user", {}) or {}
 
-    # Create DEXCheck link if eth_address exists
-    eth_address = token.get("eth_address")
-    dexcheck_link = f"https://dexcheck.ai/app/wallet-analyzer/{eth_address}?tab=pnl-calculator&chain=base" if eth_address else None
+    # Create DEXCheck links for all eth addresses
+    eth_addresses = token.get("eth_addresses", [])
+    dexcheck_links = [f"https://dexcheck.ai/app/wallet-analyzer/{addr}?tab=pnl-calculator&chain=base" for addr in eth_addresses] if eth_addresses else []
 
     # Get Neynar score
     neynar_score = user_data.get("experimental", {}).get("neynar_user_score", "N/A")
@@ -362,13 +372,17 @@ def announce_token(token: Dict) -> None:
         f"{' 🏅' if user_data.get('power_badge') else ''}\n"
         f"🎯 Neynar Score: {neynar_score}\n\n"
         f"👤 {creator_data.get('link', 'N/A')}\n"
-        f"🔍 Token Search: {f'https://warpcast.com/~/search/recent?q={token.get('name', '').replace(' ', '+')}' }\n"
-        f"📊 {token.get('links', {}).get('dexscreener', 'N/A')}"
+        f"🔍 Mentions: {f'https://warpcast.com/~/search/recent?q={token.get('name', '').replace(' ', '+')}' }\n"
+        f"📊 {token.get('links', {}).get('dexscreener', 'N/A')}\n"
+        f"🌐 {token.get('links', {}).get('clanker', 'N/A')}"
+        f"The user has {len(eth_addresses)} verified ETH addresses on Farcaster."
     )
 
-    # Add DEXCheck link if available
-    if dexcheck_link:
-        text += f"\n🔎 Creator History: {dexcheck_link}"
+    # Add DEXCheck links if available
+    if dexcheck_links:
+        text += "\n🔎 Creator History:"
+        for link in dexcheck_links:
+            text += f"\n{link}"
 
     try:
         neynar.post_cast(text)
