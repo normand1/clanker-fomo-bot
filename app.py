@@ -7,14 +7,16 @@ from dotenv import load_dotenv
 from datetime import datetime
 from neynar_api import NeynarAPIManager
 from table_formatter import display_tokens
+from database import DatabaseManager
 
 from scraper import ClankerScraper
 from announcer import TokenAnnouncer
 
-CACHE_FILE = "notified_tokens.json"
+NOTIFIED_TOKENS_CACHE_FILE = "notified_tokens.json"
 load_dotenv()
 neynar = NeynarAPIManager()
-announcer = TokenAnnouncer()
+announcer = TokenAnnouncer(notified_tokens_cache_file=NOTIFIED_TOKENS_CACHE_FILE)
+db_manager = DatabaseManager()
 
 
 def check_clanker(output=None, verbose=False):
@@ -33,8 +35,20 @@ def check_clanker(output=None, verbose=False):
         if verbose:
             click.echo(f"Content Length: {len(html_content)} characters")
 
-        # Format tokens using the scraper's method
-        token_dicts = [scraper.format_token_dict(token) for token in tokens]
+        # Save tokens to database and format them
+        token_dicts = []
+        for token in tokens:
+            try:
+                # Assuming token is an object, access its attributes directly
+                token_name = getattr(token, "name", "Unknown")
+
+                # Save to database
+                db_manager.save_token(token)
+                click.echo(f"Token {token_name} saved to database.")  # Log status
+            except Exception as e:
+                click.echo(f"Failed to save token {token_name}: {e}", err=True)  # Log error
+            # Format for display
+            token_dicts.append(scraper.format_token_dict(token))
 
         # Add metadata
         result = {"timestamp": datetime.now().isoformat(), "total_tokens": len(token_dicts), "tokens": token_dicts}
@@ -51,7 +65,14 @@ def check_clanker(output=None, verbose=False):
             # Use token's contract address as a unique identifier
             token_id = token.get("contract_address")
 
-            if follower_count > 2000 and neynar_user_score > 0.95 and not announcer.is_token_announced(token_id):
+            # Construct creator_data dictionary for database
+            creator_details = {"username": creator_data.get("username"), "eth_addresses": creator_data.get("eth_addresses", []), "follower_count": follower_count, "neynar_score": neynar_user_score}
+
+            # Add creator details to database
+            db_manager.add_creator_details(token_id, creator_details)
+
+            if follower_count > 2000 and neynar_user_score >= 0.95 and not announcer.is_token_announced(token_id):
+                click.echo(f"🔔 Notifying {token_name} with {follower_count} followers and Neynar score {neynar_user_score} 🔔")
 
                 token_name = token.get("name", "Unknown")
 
@@ -60,8 +81,6 @@ def check_clanker(output=None, verbose=False):
 
                 # Mark as announced
                 announcer.mark_token_announced(token_id)
-
-                click.echo(f"🔔 Notified {token_name} with {follower_count} followers and Neynar score {neynar_user_score} 🔔")
 
         # Display the formatted data in the terminal
         display_tokens(token_dicts)

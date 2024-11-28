@@ -136,10 +136,9 @@ class ClankerScraper:
                 image_url = img["src"] if img and "src" in img.attrs else None
 
                 # Extract external links
-                links = card.find_all("a", href=True)
-                dexscreener_url = next((link["href"] for link in links if "dexscreener.com" in link["href"]), None)
-                basescan_url = next((link["href"] for link in links if "basescan.org" in link["href"]), None)
-                clanker_page_url = next((link["href"] for link in links if "/clanker/" in link["href"]), None)
+                dexscreener_url = "https://dexscreener.com/base/" + contract_address
+                basescan_url = "https://basescan.org/token/" + contract_address
+                clanker_page_url = "/clanker/" + contract_address
 
                 # Update external links as needed
                 clanker_page_url = "https://www.clanker.world" + clanker_page_url if clanker_page_url else None

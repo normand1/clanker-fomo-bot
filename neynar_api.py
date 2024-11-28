@@ -2,6 +2,7 @@ import requests
 from typing import Optional, Dict, Any
 import os
 from dotenv import load_dotenv
+import click
 
 
 class NeynarAPIManager:
@@ -67,13 +68,15 @@ class NeynarAPIManager:
 
     #     return response.json()
 
-    def post_cast(self, text: str, signer_uuid: Optional[str] = None) -> Dict[str, Any]:
+    def post_cast(self, text: str, signer_uuid: Optional[str] = None, frame_url: Optional[str] = None, reply_to: Optional[str] = None) -> Dict[str, Any]:
         """
         Post a new cast to Farcaster.
 
         Args:
             text: The text content of the cast
             signer_uuid: The UUID of the signer. If not provided, will try to load from environment variables.
+            frame_url: The URL of the frame to embed in the cast.
+            reply_to: The hash of the cast to reply to.
 
         Returns:
             Dict containing the API response
@@ -89,7 +92,15 @@ class NeynarAPIManager:
         if not signer_uuid:
             raise ValueError("Signer UUID is required. Provide it directly or set NEYNAR_SIGNER_UUID environment variable.")
 
-        payload = {"signer_uuid": signer_uuid, "text": text}
+        click.echo(f"Posting cast with frameurl: {frame_url}")
+        # Prepare the payload with optional frame_url and reply_to
+        payload = {
+            "signer_uuid": signer_uuid,
+            "text": text,
+            "embeds": [{"url": frame_url}] if frame_url else [],
+        }
+        if reply_to:
+            payload["reply_to"] = reply_to
 
         headers = {**self.headers, "content-type": "application/json"}
 

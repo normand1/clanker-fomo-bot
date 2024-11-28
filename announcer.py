@@ -7,9 +7,9 @@ import os
 
 
 class TokenAnnouncer:
-    def __init__(self):
+    def __init__(self, notified_tokens_cache_file: str):
         self.neynar = NeynarAPIManager()
-        self.cache_file = "notified_tokens.json"
+        self.cache_file = notified_tokens_cache_file
         self._cache = self._load_cache()
 
     def _load_cache(self):
@@ -48,19 +48,27 @@ class TokenAnnouncer:
         creator_data = token.get("creator", {}) or {}
         neynar_data = creator_data.get("neynar_data", {}) or {}
         user_data = neynar_data.get("user", {}) or {}
+        contract_address = token.get("contract_address", None)
 
         # Send Mac notification
         username = creator_data.get("username", "Unknown")
         token_name = token.get("name", "Unknown")
+        eth_addresses = token.get("eth_addresses", [])
         follower_count = user_data.get("follower_count", "N/A")
         dexscreener_url = token.get("links", {}).get("dexscreener", "N/A")
 
         self.send_mac_notification(title="New Token Created!", message=f"{username} created a token: {token_name} with {follower_count} followers.", url=dexscreener_url)
 
         # Create DEXCheck links for all eth addresses
-        eth_addresses = token.get("eth_addresses", [])
         dexcheck_links = [f"https://dexcheck.ai/app/wallet-analyzer/{addr}?tab=pnl-calculator&chain=base" for addr in eth_addresses] if eth_addresses else []
 
+        # Create Banyan Frame Link With Referral Address if available
+        banyan_referral_address = os.getenv("BANYAN_REFERRAL_ADDRESS")
+        if banyan_referral_address:
+            banyan_frame_link = f"https://app.banyan.top/api/frame/swap/base/{contract_address}?referral={banyan_referral_address}"
+        else:
+            banyan_frame_link = f"https://app.banyan.top/api/frame/swap/base/{contract_address}"
+        click.echo(f"Banyan Frame Link: {banyan_frame_link}")
         # Get Neynar score
         neynar_score = user_data.get("experimental", {}).get("neynar_user_score", "N/A")
 
@@ -75,7 +83,7 @@ class TokenAnnouncer:
             f"🔍 Mentions: {f'https://warpcast.com/~/search/recent?q={token.get('name', '').replace(' ', '+')}' }\n"
             f"📊 {token.get('links', {}).get('dexscreener', 'N/A')}\n"
             f"🌐 {token.get('links', {}).get('clanker', 'N/A')}\n"
-            f"🔒 The user has {len(eth_addresses)} verified ETH addresses on Farcaster."
+            f"🔒 The user has {len(eth_addresses)} verified ETH addresses on Farcaster.\n"
         )
 
         # Add DEXCheck links if available
@@ -86,7 +94,7 @@ class TokenAnnouncer:
 
         try:
             click.echo(text)
-            self.neynar.post_cast(text)
+            self.neynar.post_cast(text, frame_url=banyan_frame_link)
             click.echo(f"Successfully announced token: {token.get('name')}")
         except Exception as e:
             click.echo(f"Error announcing token: {e}", err=True)
