@@ -20,7 +20,7 @@ announcer = TokenAnnouncer(notified_tokens_cache_file=NOTIFIED_TOKENS_CACHE_FILE
 db_manager = DatabaseManager()
 
 
-def check_clanker(output=None, verbose=False):
+def check_clanker(output=None, verbose=False, dryrun=False):
     """Main function to check and parse Clanker tokens"""
     url = "https://www.clanker.world/clanker"
 
@@ -73,15 +73,13 @@ def check_clanker(output=None, verbose=False):
             db_manager.add_creator_details(token_id, creator_details)
 
             if follower_count > 2000 and neynar_user_score >= 0.95 and not announcer.is_token_announced(token_id):
-                click.echo(f"🔔 Notifying {token_name} with {follower_count} followers and Neynar score {neynar_user_score} 🔔")
+                if not dryrun:
+                    click.echo(f"🔔 Notifying {token_name} with {follower_count} followers and Neynar score {neynar_user_score} 🔔")
 
-                token_name = token.get("name", "Unknown")
-
-                # Announce the token
-                announcer.announce_token(token)
-
-                # Mark as announced
-                announcer.mark_token_announced(token_id)
+                # Announce the token if needed
+                if not dryrun:
+                    announcer.announce_token(token)
+                    announcer.mark_token_announced(token_id)
 
         # Display the formatted data in the terminal
         display_tokens(token_dicts)
@@ -94,13 +92,14 @@ def check_clanker(output=None, verbose=False):
             click.echo(f"Results saved to {output}")
 
             # Also save raw HTML for debugging
-            if verbose:
+            if verbose and not dryrun:
                 debug_html_path = output + ".html"
                 with open(debug_html_path, "w", encoding="utf-8") as f:
                     f.write(html_content)
-                click.echo(f"Raw HTML saved to {debug_html_path}")
+                if not dryrun:
+                    click.echo(f"Raw HTML saved to {debug_html_path}")
 
-        if verbose:
+        if verbose and not dryrun:
             click.echo(f"\nFound {len(tokens)} tokens")
 
     except Exception as e:
@@ -117,16 +116,19 @@ def cli():
 @cli.command()
 @click.option("--output", "-o", type=click.Path(), help="Output file path for JSON results")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
-def check(output, verbose):
+@click.option("--dryrun", "-d", is_flag=True, help="Run without making notifications or console output")
+def check(output, verbose, dryrun):
     """Check and parse current Clanker tokens"""
-    return check_clanker(output, verbose)
+    return check_clanker(output, verbose, dryrun)
 
 
 @cli.command()
 @click.option("--hours", "-h", default=1, type=int, help="Number of hours to look back")
-def recent(hours):
+@click.option("--dryrun", "-d", is_flag=True, help="Run without making notifications or console output")
+def recent(hours, dryrun):
     """Display tokens saved in the past specified hours"""
     try:
+        click.echo(f"Getting recent tokens from the past {hours} hour(s)...")
         narrative = TokenNarrative()
         recent_tokens = narrative.get_recent_tokens(hours)
         if recent_tokens:
@@ -134,11 +136,13 @@ def recent(hours):
             display_tokens(recent_tokens)
             current_narrative = narrative.get_current_narrative_from_tokens(recent_tokens, 3)
             click.echo(f"\nCurrent narrative: {current_narrative}")
-            announcer.announce_narrative(current_narrative)
+            if not dryrun:
+                announcer.announce_narrative(current_narrative)
         else:
             click.echo(f"No tokens found in the past {hours} hour(s)")
     except Exception as e:
-        click.echo(f"Error retrieving recent tokens: {e}", err=True)
+        if not dryrun:
+            click.echo(f"Error retrieving recent tokens: {e}", err=True)
         return 1
 
 

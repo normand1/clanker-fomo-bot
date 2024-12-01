@@ -39,6 +39,16 @@ class DatabaseManager:
                 )
             """
             )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS themes (
+                    theme_name TEXT,
+                    symbol TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (theme_name, symbol)
+                )
+                """
+            )
             conn.commit()
 
     def save_token(self, token, creator_data=None):
@@ -176,3 +186,18 @@ class DatabaseManager:
 
             rows = cursor.fetchall()
             return [dict(row) for row in rows]  # Convert rows to dictionaries
+
+    def save_themes(self, themes_dict):
+        """Save themes and their associated symbols to the database"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            for theme, symbols in themes_dict.items():
+                for symbol in symbols:
+                    cursor.execute(
+                        """
+                        INSERT OR REPLACE INTO themes (theme_name, symbol, created_at)
+                        VALUES (?, ?, CURRENT_TIMESTAMP)
+                        """,
+                        (theme, symbol),
+                    )
+            conn.commit()
