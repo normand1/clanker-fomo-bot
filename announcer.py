@@ -34,16 +34,18 @@ class TokenAnnouncer:
             self._cache.append(token_id)
             self._save_cache()
 
-    def send_mac_notification(self, title: str, message: str, url: str):
+    def send_mac_notification(self, title: str, message: str, url: str, dryrun: bool = False):
         """Send a macOS notification that opens the Dexscreener link when clicked."""
-        Notifier.notify(message, title=title, open=url)
+        if not dryrun:
+            Notifier.notify(message, title=title, open=url)
 
-    def announce_token(self, token: Dict) -> None:
+    def announce_token(self, token: Dict, dryrun: bool = False) -> None:
         """
         Announce a new token by posting a cast to Farcaster.
 
         Args:
             token: Dictionary containing token information
+            dryrun: If True, suppresses notifications and console output
         """
         creator_data = token.get("creator", {}) or {}
         neynar_data = creator_data.get("neynar_data", {}) or {}
@@ -57,7 +59,7 @@ class TokenAnnouncer:
         follower_count = user_data.get("follower_count", "N/A")
         dexscreener_url = token.get("links", {}).get("dexscreener", "N/A")
 
-        self.send_mac_notification(title="New Token Created!", message=f"{username} created a token: {token_name} with {follower_count} followers.", url=dexscreener_url)
+        self.send_mac_notification(title="New Token Created!", message=f"{username} created a token: {token_name} with {follower_count} followers.", url=dexscreener_url, dryrun=dryrun)
 
         # Create DEXCheck links for all eth addresses
         dexcheck_links = [f"https://dexcheck.ai/app/wallet-analyzer/{addr}?tab=pnl-calculator&chain=base" for addr in eth_addresses] if eth_addresses else []
@@ -93,19 +95,22 @@ class TokenAnnouncer:
                 text += f"\n{link}"
 
         try:
-            click.echo(text)
+            if not dryrun:
+                click.echo(text)
             self.neynar.post_cast(text, frame_url=banyan_frame_link)
-            click.echo(f"Successfully announced token: {token.get('name')}")
+            if not dryrun:
+                click.echo(f"Successfully announced token: {token.get('name')}")
         except Exception as e:
-            click.echo(f"Error announcing token: {e}", err=True)
+            if not dryrun:
+                click.echo(f"Error announcing token: {e}", err=True)
 
-    def announce_narrative(self, narrative: Dict[str, List[str]]) -> None:
+    def announce_narrative(self, narrative: Dict[str, List[str]], dryrun: bool = False) -> None:
         """
         Announce the current narrative by posting a cast to Farcaster.
 
         Args:
             narrative: Dictionary containing narrative information.
-            Keys are narrative categories, values are lists of tokens in that category.
+            dryrun: If True, suppresses console output
         """
         try:
             # Format the top themes announcement
@@ -118,8 +123,11 @@ class TokenAnnouncer:
             text += "\nStay informed and explore the latest trends in these exciting themes!"
 
             # Post the narrative cast
-            click.echo(text)
+            if not dryrun:
+                click.echo(text)
             self.neynar.post_cast(text)
-            click.echo("Successfully announced top themes.")
+            if not dryrun:
+                click.echo("Successfully announced top themes.")
         except Exception as e:
-            click.echo(f"Error announcing narrative: {e}", err=True)
+            if not dryrun:
+                click.echo(f"Error announcing narrative: {e}", err=True)

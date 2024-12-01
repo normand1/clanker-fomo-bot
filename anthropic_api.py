@@ -1,9 +1,11 @@
 import anthropic
+from database import DatabaseManager  # Import the DatabaseManager class
 
 
 class TokenAnalyzer:
     def __init__(self):
         self.client = anthropic.Anthropic()
+        self.db_manager = DatabaseManager()  # Instantiate the DatabaseManager
 
     def analyze_tokens(self, token_list: str, top_x: int) -> dict:
         """
@@ -53,6 +55,9 @@ class TokenAnalyzer:
 
         # Sort the themes by the length of their values in descending order
         sorted_themes = sorted(themed_dict.items(), key=lambda item: len(item[1]), reverse=True)
+
+        # Save the sorted themes to the database
+        self.db_manager.save_themes(dict(sorted_themes))
 
         # Select the top x themes
         top_themes = dict(sorted_themes[:top_x])
