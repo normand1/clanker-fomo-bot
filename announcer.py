@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 import click
 from neynar_api import NeynarAPIManager
 from pync import Notifier
@@ -98,3 +98,28 @@ class TokenAnnouncer:
             click.echo(f"Successfully announced token: {token.get('name')}")
         except Exception as e:
             click.echo(f"Error announcing token: {e}", err=True)
+
+    def announce_narrative(self, narrative: Dict[str, List[str]]) -> None:
+        """
+        Announce the current narrative by posting a cast to Farcaster.
+
+        Args:
+            narrative: Dictionary containing narrative information.
+            Keys are narrative categories, values are lists of tokens in that category.
+        """
+        try:
+            # Format the top themes announcement
+            text = "🚀 Top Themes Alert 🚀\n\n" f"Here are the latest top themes and their trending tokens:\n"
+
+            for category, tokens in narrative.items():
+                tokens_list = ", ".join(tokens)
+                text += f"\n🌟 {category}\n" f"🪙 Tokens: {tokens_list}\n"
+
+            text += "\nStay informed and explore the latest trends in these exciting themes!"
+
+            # Post the narrative cast
+            click.echo(text)
+            self.neynar.post_cast(text)
+            click.echo("Successfully announced top themes.")
+        except Exception as e:
+            click.echo(f"Error announcing narrative: {e}", err=True)

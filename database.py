@@ -143,3 +143,36 @@ class DatabaseManager:
                 ),
             )
             conn.commit()
+
+    def get_tokens_since(self, cutoff_time):
+        """
+        Retrieve all tokens created after the specified timestamp, including creator details
+
+        Args:
+            cutoff_time (datetime): The timestamp to query tokens from
+
+        Returns:
+            list: List of dictionaries containing token data and creator details
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row  # This allows accessing columns by name
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT 
+                    t.*,
+                    cd.username as creator_username,
+                    cd.eth_addresses as creator_eth_addresses,
+                    cd.follower_count as creator_follower_count,
+                    cd.neynar_score as creator_neynar_score
+                FROM tokens t
+                LEFT JOIN creator_details cd ON t.contract_address = cd.contract_address
+                WHERE t.created_at >= ?
+                ORDER BY t.created_at DESC
+                """,
+                (cutoff_time,),
+            )
+
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]  # Convert rows to dictionaries

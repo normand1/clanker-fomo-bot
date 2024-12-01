@@ -1,1 +1,2 @@
 * * * * * cd /Users/davidnorman/clanker-launch-bot && ~/.pyenv/versions/3.12.3/bin/python3.12 app.py >> logfile.log 2>&1
+0 * * * * cd /Users/davidnorman/clanker-launch-bot && ~/.pyenv/versions/3.12.3/bin/python3.12 app.py recent --hours 1 >> logfile.log 2>&1

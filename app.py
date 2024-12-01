@@ -8,6 +8,7 @@ from datetime import datetime
 from neynar_api import NeynarAPIManager
 from table_formatter import display_tokens
 from database import DatabaseManager
+from narrative import TokenNarrative
 
 from scraper import ClankerScraper
 from announcer import TokenAnnouncer
@@ -119,6 +120,26 @@ def cli():
 def check(output, verbose):
     """Check and parse current Clanker tokens"""
     return check_clanker(output, verbose)
+
+
+@cli.command()
+@click.option("--hours", "-h", default=1, type=int, help="Number of hours to look back")
+def recent(hours):
+    """Display tokens saved in the past specified hours"""
+    try:
+        narrative = TokenNarrative()
+        recent_tokens = narrative.get_recent_tokens(hours)
+        if recent_tokens:
+            click.echo(f"\nFound {len(recent_tokens)} tokens in the past {hours} hour(s):")
+            display_tokens(recent_tokens)
+            current_narrative = narrative.get_current_narrative_from_tokens(recent_tokens, 3)
+            click.echo(f"\nCurrent narrative: {current_narrative}")
+            announcer.announce_narrative(current_narrative)
+        else:
+            click.echo(f"No tokens found in the past {hours} hour(s)")
+    except Exception as e:
+        click.echo(f"Error retrieving recent tokens: {e}", err=True)
+        return 1
 
 
 def main():
