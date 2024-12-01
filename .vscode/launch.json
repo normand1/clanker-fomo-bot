@@ -8,6 +8,15 @@
             "program": "${workspaceFolder}/app.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Python: Get Narrative (1h)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": ["recent", "--hours", "1"]
         }
     ]
 }
